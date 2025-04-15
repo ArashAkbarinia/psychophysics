@@ -37,7 +37,6 @@ COLORS = [
     {"name": "Turquoise", "rgb": (63, 185, 177)},
     {"name": "Beige", "rgb": (195, 168, 126)},
 
-
     {"name": "White", "rgb": (255, 255, 255)},
     {"name": "Black", "rgb": (0, 0, 0)},
     {"name": "Gray", "rgb": (128, 128, 128)},
@@ -63,31 +62,48 @@ def index():
 
 @app.route('/setup', methods=['POST'])
 def setup():
-    # Create results file if it doesn't exist
     participant_id = request.form.get('participant_id', 'anonymous')
     results_file = os.path.join(RESULTS_FOLDER, f'{participant_id}_results.csv')
 
     if not os.path.exists(results_file):
         with open(results_file, 'w', newline='') as f:
             writer = csv.writer(f)
-            writer.writerow(['image_name', 'segmentation_label', 'selected_colors'])
+            writer.writerow(['image_name', 'folder', 'segmentation_label', 'selected_colors'])
 
-    # Get all image pairs
-    rgb_folder = os.path.join(UPLOAD_FOLDER, 'rgb')
-    # seg_folder = os.path.join(UPLOAD_FOLDER, 'segmentation')
-    seg_folder = rgb_folder
+    base_path = UPLOAD_FOLDER
+    folders = {
+        "trial": os.path.join(base_path, "trial"),
+        "test": os.path.join(base_path, "test"),
+        "train": os.path.join(base_path, "train")
+    }
 
-    if not os.path.exists(rgb_folder) or not os.path.exists(seg_folder):
-        return jsonify({"error": "Image folders not found. Please upload images first."}), 400
+    # Check all required folders exist
+    for folder in folders.values():
+        if not os.path.exists(folder):
+            return jsonify({"error": f"Required image folder '{folder}' not found."}), 400
 
-    rgb_images = [f for f in os.listdir(rgb_folder) if f.endswith(('.png', '.jpg', '.jpeg'))]
+    # Get images
+    get_images = lambda path: [f for f in os.listdir(path) if f.endswith(('.png', '.jpg', '.jpeg'))]
 
-    # Prepare trial list (200 trials or less if fewer images)
-    trials = []
-    while len(trials) < 200 and rgb_images:
-        random.shuffle(rgb_images)
-        trials.extend(rgb_images[:min(len(rgb_images), 200 - len(trials))])
-        print(trials)
+    trial_imgs = get_images(folders["trial"])
+    test_imgs = get_images(folders["test"])
+    train_imgs = get_images(folders["train"])
+
+    # Random selection and shuffling
+    random.shuffle(trial_imgs)
+    random.shuffle(test_imgs)
+    random.shuffle(train_imgs)
+
+    selected_trial_imgs = trial_imgs[:5]
+    selected_test_imgs = test_imgs[:200]
+    selected_train_imgs = train_imgs[:400]
+
+    # Add folder info as prefix to image name to differentiate source
+    trials = [f"trial/{img}" for img in selected_trial_imgs] + \
+             [f"test/{img}" for img in selected_test_imgs] + \
+             [f"train/{img}" for img in selected_train_imgs]
+
+    random.shuffle(trials[5:])  # Shuffle only the main trials (keep trial phase first)
 
     return jsonify({
         "participant_id": participant_id,
@@ -99,38 +115,24 @@ def setup():
 @app.route('/get_trial', methods=['POST'])
 def get_trial():
     data = request.json
-    image_name = data.get('image_name')
+    image_path = data.get('image_name')  # e.g. "train/image123.jpg"
 
-    rgb_path = os.path.join(UPLOAD_FOLDER, 'rgb', image_name)
-    seg_path = rgb_path
-    # seg_path = os.path.join(UPLOAD_FOLDER, 'segmentation',
-    #                         image_name.replace('.jpg', '.png').replace('.jpeg', '.png'))
+    full_path = os.path.join(UPLOAD_FOLDER, image_path)
 
-    if not os.path.exists(rgb_path) or not os.path.exists(seg_path):
-        return jsonify({"error": "Image not found"}), 404
+    if not os.path.exists(full_path):
+        return jsonify({"error": f"Image not found: {image_path}"}), 404
 
-    # Load segmentation image
-    seg_img = np.array(Image.open(seg_path))
-    # unique_labels = np.unique(seg_img)
-    #
-    # # Remove background (usually 0)
-    # if 0 in unique_labels and len(unique_labels) > 1:
-    #     unique_labels = unique_labels[unique_labels != 0]
-    #
-    # # Randomly select a segment
-    # selected_label = random.choice(unique_labels)
-    #
-    # # Create binary mask
-    # binary_mask = (seg_img == selected_label).astype(np.uint8) * 255
+    seg_img = np.array(Image.open(full_path))
     selected_label = 0
     binary_mask = np.zeros(seg_img.shape[:2]).astype(np.uint8) + 128
     binary_img = Image.fromarray(binary_mask)
 
-    # Convert images to base64 for sending to frontend
+    # Convert RGB to base64
     buffered_rgb = io.BytesIO()
-    Image.open(rgb_path).save(buffered_rgb, format="PNG")
+    Image.open(full_path).save(buffered_rgb, format="PNG")
     rgb_base64 = base64.b64encode(buffered_rgb.getvalue()).decode('utf-8')
 
+    # Convert binary to base64
     buffered_binary = io.BytesIO()
     binary_img.save(buffered_binary, format="PNG")
     binary_base64 = base64.b64encode(buffered_binary.getvalue()).decode('utf-8')
@@ -138,7 +140,7 @@ def get_trial():
     return jsonify({
         "rgb_image": rgb_base64,
         "binary_image": binary_base64,
-        "image_name": image_name,
+        "image_name": image_path,
         "segmentation_label": int(selected_label)
     })
 
@@ -147,7 +149,8 @@ def get_trial():
 def save_result():
     data = request.json
     participant_id = data.get('participant_id', 'anonymous')
-    image_name = data.get('image_name')
+    image_path = data.get('image_name')  # e.g. "train/image123.jpg"
+    folder, image_name = os.path.split(image_path)
     segmentation_label = data.get('segmentation_label')
     selected_colors = data.get('selected_colors', [])  # Now accepting a list of colors
 
@@ -158,7 +161,7 @@ def save_result():
 
     with open(results_file, 'a', newline='') as f:
         writer = csv.writer(f)
-        writer.writerow([image_name, segmentation_label, colors_string])
+        writer.writerow([image_name, folder, segmentation_label, colors_string])
 
     return jsonify({"success": True})
 

@@ -156,6 +156,11 @@
         <button id="pause-btn" class="hidden">Pause Experiment</button>
         <button id="continue-btn" class="hidden">Continue Experiment</button>
         <button id="finish-btn" class="hidden">Finish Experiment</button>
+
+        <!-- Practice trial message -->
+        <div id="practice-message" class="hidden" style="color: #d17f00; font-weight: bold; margin-bottom: 10px;">
+            🧪 Practice Trial: This is a practice trial to help you understand the task. Your selections here will not be analysed.
+        </div>
     </div>
 
     <div id="completion-message" class="hidden">
@@ -255,6 +260,13 @@
             if (currentTrialIndex >= totalTrials) {
                 completeExperiment();
                 return;
+            }
+            // Show practice message for the first 5 trials
+            const practiceMessage = document.getElementById('practice-message');
+            if (currentTrialIndex < 5) {
+                practiceMessage.classList.remove('hidden');
+            } else {
+                practiceMessage.classList.add('hidden');
             }
 
             if (isPaused) {
@@ -356,21 +368,23 @@
 <!--            }-->
 
             try {
-                const response = await fetch('/save_result', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        participant_id: participantId,
-                        image_name: currentImageName,
-                        segmentation_label: currentSegmentationLabel,
-                        selected_colors: selectedColors
-                    })
-                });
+                if (currentTrialIndex >= 5) {
+                    const response = await fetch('/save_result', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            participant_id: participantId,
+                            image_name: currentImageName,
+                            segmentation_label: currentSegmentationLabel,
+                            selected_colors: selectedColors
+                        })
+                    });
 
-                if (!response.ok) {
-                    throw new Error('Failed to save result');
+                    if (!response.ok) {
+                        throw new Error('Failed to save result');
+                    }
                 }
 
                 // Prevent further color selection during transition
