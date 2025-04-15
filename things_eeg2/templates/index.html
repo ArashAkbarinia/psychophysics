@@ -1,0 +1,434 @@
+<!-- templates/index.html (UPDATED) -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Psychophysical Experiment</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .hidden {
+            display: none !important;
+        }
+        .color-option {
+            display: flex;
+            align-items: center;
+            margin: 2px;
+            cursor: pointer;
+            position: relative;
+        }
+        .color-swatch {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            cursor: pointer;
+            border: 1px solid #000; /* Black outline for all color swatches */
+            box-sizing: border-box; /* Ensure border doesn't affect size */
+        }
+        .color-option:hover .color-swatch {
+            border: 2px solid #333;
+        }
+        .color-option label {
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+        }
+        .color-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr); /* Increased from 6 to 8 colors per row */
+            justify-content: center;
+            max-width: 400px;
+            margin: 20px auto;
+            gap: 5px; /* Reduced gap from 10px to 5px */
+        }
+        #experiment-container {
+            text-align: center;
+        }
+        #image-display {
+            width: 600px; /* 500px + 20px padding */
+            height: 600px; /* 500px + 20px padding */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            margin: 0 auto 20px;
+            /* border: 3px solid #333; */ /* Added border around the image display */
+            /* padding: 10px; */
+            /* box-shadow: 0 0 10px rgba(0,0,0,0.2); */
+            /* box-sizing: content-box; */ /* Ensure padding doesn't affect dimensions */
+        }
+        #image-display img {
+            width: 5500px;
+            height: 550px;
+            object-fit: contain; /* Ensures the image maintains aspect ratio if needed */
+        }
+        #fixation {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 40px;
+            font-weight: bold;
+            z-index: 10;
+        }
+        #progress {
+            margin-top: 20px;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .instruction {
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        #next-btn {
+            font-size: 16px;
+            padding: 12px 24px;
+            background-color: #2196F3;
+        }
+        #next-btn:hover {
+            background-color: #0b7dda;
+        }
+        .checkbox-input {
+            margin-right: 5px; /* Added spacing between checkbox and color swatch */
+            width: 16px;
+            height: 16px;
+        }
+    </style>
+</head>
+<body>
+    <h1 align="center">Colour Experiment</h1>
+
+    <div id="setup-form">
+        <h2>Participant Information</h2>
+        <p>Please enter your participant ID and click "Start Experiment" to begin.</p>
+        <div>
+            <label for="participant-id">Participant ID:</label>
+            <input type="text" id="participant-id" required>
+        </div>
+        <button id="start-btn">Start Experiment</button>
+        <p><a href="/upload">Upload Images (Admin Only)</a></p>
+    </div>
+
+    <div id="experiment-container" class="hidden">
+        <!-- Image display area -->
+        <div id="image-display">
+            <div id="fixation">+</div>
+            <img id="display-image" class="hidden" src="" alt="">
+        </div>
+
+        <!-- Color selection -->
+        <div id="color-selection">
+            <p class="instruction">Select colour(s) of the scene:</p>
+            <div class="color-grid">
+                {% for color in colors %}
+                <div class="color-option" title="{{ color.name }}">
+                    <label>
+                        <input type="checkbox" class="checkbox-input" data-color="{{ color.name }}">
+                        <div class="color-swatch" style="background-color: {{ color.hex }};"></div>
+                    </label>
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- Next button -->
+            <button id="next-btn">Next Trial</button>
+        </div>
+
+        <div id="progress">
+            <p>Trial: <span id="current-trial">0</span> / <span id="total-trials">0</span></p>
+        </div>
+
+        <button id="pause-btn" class="hidden">Pause Experiment</button>
+        <button id="continue-btn" class="hidden">Continue Experiment</button>
+        <button id="finish-btn" class="hidden">Finish Experiment</button>
+    </div>
+
+    <div id="completion-message" class="hidden">
+        <h2>Experiment Completed</h2>
+        <p>Thank you for your participation! Your results have been saved.</p>
+    </div>
+
+    <script>
+        // Experiment variables
+        let participantId = '';
+        let trials = [];
+        let currentTrialIndex = 0;
+        let totalTrials = 0;
+        let currentImageName = '';
+        let currentSegmentationLabel = null;
+        let isPaused = false;
+        let canSelectColor = false;
+        let selectedColors = [];
+
+        // DOM elements
+        const setupForm = document.getElementById('setup-form');
+        const experimentContainer = document.getElementById('experiment-container');
+        const fixation = document.getElementById('fixation');
+        const imageDisplay = document.getElementById('image-display');
+        const displayImage = document.getElementById('display-image');
+        const currentTrialSpan = document.getElementById('current-trial');
+        const totalTrialsSpan = document.getElementById('total-trials');
+        const pauseBtn = document.getElementById('pause-btn');
+        const continueBtn = document.getElementById('continue-btn');
+        const finishBtn = document.getElementById('finish-btn');
+        const completionMessage = document.getElementById('completion-message');
+        const nextBtn = document.getElementById('next-btn');
+
+        // Setup event listeners
+        document.getElementById('start-btn').addEventListener('click', startExperiment);
+        pauseBtn.addEventListener('click', pauseExperiment);
+        continueBtn.addEventListener('click', continueExperiment);
+        finishBtn.addEventListener('click', finishExperiment);
+        nextBtn.addEventListener('click', handleNextTrial);
+
+        // Add event listeners to color checkboxes
+        document.querySelectorAll('.checkbox-input').forEach(checkbox => {
+            checkbox.addEventListener('change', handleColorSelection);
+        });
+
+        // Start experiment
+        async function startExperiment() {
+            participantId = document.getElementById('participant-id').value.trim();
+
+            if (!participantId) {
+                alert('Please enter a participant ID');
+                return;
+            }
+
+            try {
+                const response = await fetch('/setup', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: `participant_id=${encodeURIComponent(participantId)}`
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to setup experiment');
+                }
+
+                const data = await response.json();
+
+                if (data.error) {
+                    alert(data.error);
+                    return;
+                }
+
+                trials = data.trials;
+                totalTrials = data.total_trials;
+                currentTrialIndex = 0;
+
+                // Update UI
+                setupForm.classList.add('hidden');
+                experimentContainer.classList.remove('hidden');
+                pauseBtn.classList.remove('hidden');
+                totalTrialsSpan.textContent = totalTrials;
+                currentTrialSpan.textContent = '1';
+
+                // Start the first trial
+                runTrial();
+
+            } catch (error) {
+                console.error('Error setting up experiment:', error);
+                alert('Failed to start experiment. Please try again.');
+            }
+        }
+
+        // Run a single trial
+        async function runTrial() {
+            if (currentTrialIndex >= totalTrials) {
+                completeExperiment();
+                return;
+            }
+
+            if (isPaused) {
+                return;
+            }
+
+            // Reset color selection state
+            canSelectColor = false;
+            resetColorSelection();
+
+            const imageName = trials[currentTrialIndex];
+
+            // Show fixation, hide image
+            displayImage.classList.add('hidden');
+            fixation.classList.remove('hidden');
+
+            // Wait for 500ms showing fixation
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            try {
+                const response = await fetch('/get_trial', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ image_name: imageName })
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to get trial data');
+                }
+
+                const data = await response.json();
+
+                if (data.error) {
+                    alert(data.error);
+                    return;
+                }
+
+                // Store current trial info
+                currentImageName = data.image_name;
+                currentSegmentationLabel = data.segmentation_label;
+
+                // Hide fixation, show RGB image
+                fixation.classList.add('hidden');
+                displayImage.classList.remove('hidden');
+                displayImage.src = `data:image/png;base64,${data.rgb_image}`;
+
+                // Show RGB image for 100ms
+                await new Promise(resolve => setTimeout(resolve, 100));
+
+                // Display binary image
+                displayImage.src = `data:image/png;base64,${data.binary_image}`;
+
+                // Now allow color selection
+                canSelectColor = true;
+
+            } catch (error) {
+                console.error('Error running trial:', error);
+                alert('Failed to run trial. Please try again.');
+            }
+        }
+
+        // Handle color selection
+        function handleColorSelection(event) {
+            if (isPaused || !canSelectColor) {
+                event.preventDefault();
+                return;
+            }
+
+            const checkbox = event.target;
+            const selectedColor = checkbox.dataset.color;
+
+            if (!selectedColor) {
+                return;
+            }
+
+            // Update selected colors array based on checkbox state
+            if (checkbox.checked) {
+                // Add color if not already selected
+                if (!selectedColors.includes(selectedColor)) {
+                    selectedColors.push(selectedColor);
+                }
+            } else {
+                // Remove color if unchecked
+                selectedColors = selectedColors.filter(color => color !== selectedColor);
+            }
+        }
+
+        // Handle next trial button click
+        async function handleNextTrial() {
+            if (!canSelectColor || isPaused) {
+                return;
+            }
+
+<!--            if (selectedColors.length === 0) {-->
+<!--                alert('Please select at least one color before proceeding.');-->
+<!--                return;-->
+<!--            }-->
+
+            try {
+                const response = await fetch('/save_result', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        participant_id: participantId,
+                        image_name: currentImageName,
+                        segmentation_label: currentSegmentationLabel,
+                        selected_colors: selectedColors
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to save result');
+                }
+
+                // Prevent further color selection during transition
+                canSelectColor = false;
+
+                // Move to next trial
+                currentTrialIndex++;
+                currentTrialSpan.textContent = currentTrialIndex + 1;
+
+                // Clear the image to avoid showing previous binary mask during fixation
+                displayImage.src = '';
+
+                // Run next trial
+                runTrial();
+
+            } catch (error) {
+                console.error('Error saving result:', error);
+                alert('Failed to save result. Please try again.');
+            }
+        }
+
+        // Reset color selection
+        function resetColorSelection() {
+            selectedColors = [];
+            document.querySelectorAll('.checkbox-input').forEach(checkbox => {
+                checkbox.checked = false;
+            });
+        }
+
+        // Pause experiment
+        function pauseExperiment() {
+            isPaused = true;
+            pauseBtn.classList.add('hidden');
+            continueBtn.classList.remove('hidden');
+            finishBtn.classList.remove('hidden');
+        }
+
+        // Continue experiment
+        function continueExperiment() {
+            isPaused = false;
+            pauseBtn.classList.remove('hidden');
+            continueBtn.classList.add('hidden');
+            finishBtn.classList.add('hidden');
+            runTrial();
+        }
+
+        // Finish experiment early
+        function finishExperiment() {
+            if (confirm('Are you sure you want to finish the experiment early?')) {
+                completeExperiment();
+            }
+        }
+
+        // Complete experiment
+        function completeExperiment() {
+            experimentContainer.classList.add('hidden');
+            completionMessage.classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>
