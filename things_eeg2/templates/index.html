@@ -108,12 +108,38 @@
             width: 16px;
             height: 16px;
         }
+        /* New styles for instructions section */
+        #instructions {
+            margin: 20px 0;
+            padding: 15px;
+            background-color: #f8f8f8;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+        }
+        #instructions img {
+            max-width: 100%;
+            height: auto;
+            margin: 15px 0;
+            border: 1px solid #ccc;
+        }
+        #instructions p {
+            line-height: 1.5;
+        }
     </style>
 </head>
 <body>
     <h1 align="center">Colour Experiment</h1>
 
     <div id="setup-form">
+        <!-- New instructions section -->
+        <div id="instructions">
+            <h2>Instructions</h2>
+            <p>You will see an image like the one below and must select all the colours you perceive in it. For example, you might choose green, beige, yellow, and brown.</p>
+            <p>In the actual experiment, each image will be shown very briefly (100 ms), so you may notice fewer colours—select all the ones you do see, whether it's one or several.</p>
+            <p>The first five trials are for practice. The full experiment takes about 15 minutes.</p>
+            <img src="/static/ex.png" alt="Example experimental image">
+        </div>
+
         <h2>Participant Information</h2>
         <p>Please enter your participant ID and click "Start Experiment" to begin.</p>
         <div>
@@ -121,7 +147,6 @@
             <input type="text" id="participant-id" required>
         </div>
         <button id="start-btn">Start Experiment</button>
-        <p><a href="/upload">Upload Images (Admin Only)</a></p>
     </div>
 
     <div id="experiment-container" class="hidden">

@@ -74,7 +74,8 @@ def setup():
     folders = {
         "trial": os.path.join(base_path, "trial"),
         "test": os.path.join(base_path, "test"),
-        "train": os.path.join(base_path, "train")
+        "train": os.path.join(base_path, "train"),
+        "fun": os.path.join(base_path, "fun")
     }
 
     # Check all required folders exist
@@ -88,11 +89,13 @@ def setup():
     trial_imgs = get_images(folders["trial"])
     test_imgs = get_images(folders["test"])
     train_imgs = get_images(folders["train"])
+    fun_imgs = get_images(folders["fun"])
 
     # Random selection and shuffling
     random.shuffle(trial_imgs)
     random.shuffle(test_imgs)
     random.shuffle(train_imgs)
+    random.shuffle(fun_imgs)
 
     selected_trial_imgs = trial_imgs[:5]
     selected_test_imgs = test_imgs[:200]
@@ -101,7 +104,8 @@ def setup():
     # Add folder info as prefix to image name to differentiate source
     trials = [f"trial/{img}" for img in selected_trial_imgs] + \
              [f"test/{img}" for img in selected_test_imgs] + \
-             [f"train/{img}" for img in selected_train_imgs]
+             [f"train/{img}" for img in selected_train_imgs] + \
+             [f"fun/{img}" for img in fun_imgs]
 
     random.shuffle(trials[5:])  # Shuffle only the main trials (keep trial phase first)
 
