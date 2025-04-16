@@ -126,6 +126,23 @@
         #download-btn:hover {
             background-color: #F57C00;
         }
+        .instructions-layout {
+            display: flex;
+            gap: 20px;
+            align-items: flex-start;
+            flex-wrap: wrap;
+        }
+        .instructions-text {
+            flex: 1 1 300px;
+        }
+        .instructions-image {
+            flex: 1 1 250px;
+        }
+        .instructions-image img {
+            width: 80%;
+            height: auto;
+            border: 1px solid #ccc;
+        }
     </style>
 </head>
 <body>
@@ -134,14 +151,20 @@
     <div id="setup-form">
         <div id="instructions">
             <h2>Instructions</h2>
-            <p>You will see an image like the one below and must select all the colours you perceive in it. For example, you might choose green, beige, yellow, and brown.</p>
-            <p>In the actual experiment, each image will be shown very briefly (100 ms), so you may notice fewer colours—select all the ones you do see, whether it's one or several.</p>
-            <p>The first five trials are for practice. The full experiment takes about 15 minutes.</p>
-            <img src="static/ex.png" alt="Example experimental image">
+            <div class="instructions-layout">
+                <div class="instructions-text">
+                    <p>You will see an image like the one on the right and must select all the colours you perceive in it. For example, you might choose green, beige, yellow, and brown.</p>
+                    <p>In the actual experiment, each image will be shown very briefly (100 ms), so you may notice fewer colours—select all the ones you do see, whether it's one or several.</p>
+                    <p>The first five trials are for practice. The full experiment takes about 15 minutes.</p>
+                </div>
+                <div class="instructions-image">
+                    <img src="static/ex.png" alt="Experiment Screenshot">
+                </div>
+            </div>
         </div>
 
         <h2>Participant Info</h2>
-        <p>Please fill in the following optional details. Your ID will be generated automatically.</p>
+        <p>Please fill in the following optional details.</p>
 
         <div>
             <label for="participant-age">Age (optional):</label>
