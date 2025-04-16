@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Colour Experiment</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .hidden {
+            display: none !important;
+        }
+        .color-option {
+            display: flex;
+            align-items: center;
+            margin: 2px;
+            cursor: pointer;
+            position: relative;
+        }
+        .color-swatch {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            cursor: pointer;
+            border: 1px solid #000;
+            box-sizing: border-box;
+        }
+        .color-option:hover .color-swatch {
+            border: 2px solid #333;
+        }
+        .color-option label {
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+        }
+        .color-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            justify-content: center;
+            max-width: 400px;
+            margin: 20px auto;
+            gap: 5px;
+        }
+        #experiment-container {
+            text-align: center;
+        }
+        #image-display {
+            width: 600px;
+            height: 600px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            margin: 0 auto 20px;
+        }
+        #image-display img {
+            width: 550px;
+            height: 550px;
+            object-fit: contain;
+        }
+        #fixation {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 40px;
+            font-weight: bold;
+            z-index: 10;
+        }
+        #progress {
+            margin-top: 20px;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .instruction {
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        #next-btn {
+            font-size: 16px;
+            padding: 12px 24px;
+            background-color: #2196F3;
+        }
+        #next-btn:hover {
+            background-color: #0b7dda;
+        }
+        .checkbox-input {
+            margin-right: 5px;
+            width: 16px;
+            height: 16px;
+        }
+        #instructions {
+            margin: 20px 0;
+            padding: 15px;
+            background-color: #f8f8f8;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+        }
+        #instructions img {
+            max-width: 100%;
+            height: auto;
+            margin: 15px 0;
+            border: 1px solid #ccc;
+        }
+        #instructions p {
+            line-height: 1.5;
+        }
+        #download-btn {
+            background-color: #FF9800;
+            margin-top: 20px;
+        }
+        #download-btn:hover {
+            background-color: #F57C00;
+        }
+    </style>
+</head>
+<body>
+    <h1 align="center">Colour Experiment</h1>
+
+    <div id="setup-form">
+        <div id="instructions">
+            <h2>Instructions</h2>
+            <p>You will see an image like the one below and must select all the colours you perceive in it. For example, you might choose green, beige, yellow, and brown.</p>
+            <p>In the actual experiment, each image will be shown very briefly (100 ms), so you may notice fewer colours—select all the ones you do see, whether it's one or several.</p>
+            <p>The first five trials are for practice. The full experiment takes about 15 minutes.</p>
+            <img src="static/ex.png" alt="Example experimental image">
+        </div>
+
+        <h2>Participant Info</h2>
+        <p>Please fill in the following optional details. Your ID will be generated automatically.</p>
+
+        <div>
+            <label for="participant-age">Age (optional):</label>
+            <input type="text" id="participant-age" pattern="[0-9]*">
+        </div>
+        <div>
+            <label for="participant-gender">Gender (optional):</label>
+            <select id="participant-gender">
+                <option value="">–</option>
+                <option value="M">M</option>
+                <option value="F">F</option>
+                <option value="D">D</option>
+            </select>
+        </div>
+        <div>
+            <label for="participant-language">Mother Tongue (optional):</label>
+            <input type="text" id="participant-language">
+        </div>
+
+        <button id="start-btn">Start Experiment</button>
+    </div>
+
+    <div id="experiment-container" class="hidden">
+        <div id="image-display">
+            <div id="fixation">+</div>
+            <img id="display-image" class="hidden" src="" alt="">
+        </div>
+
+        <div id="color-selection">
+            <p class="instruction">Select colour(s) of the scene:</p>
+            <div class="color-grid" id="color-grid">
+                <!-- Color options will be inserted here by JavaScript -->
+            </div>
+
+            <button id="next-btn">Next Trial</button>
+        </div>
+
+        <div id="progress">
+            <p>Trial: <span id="current-trial">0</span> / <span id="total-trials">0</span></p>
+        </div>
+
+        <button id="pause-btn" class="hidden">Pause Experiment</button>
+        <button id="continue-btn" class="hidden">Continue Experiment</button>
+        <button id="finish-btn" class="hidden">Finish Experiment</button>
+
+        <div id="practice-message" class="hidden" style="color: #d17f00; font-weight: bold; margin-bottom: 10px;">
+            🧪 Practice Trial: This is a practice trial to help you understand the task. Your selections here will not be analysed.
+        </div>
+    </div>
+
+    <div id="completion-message" class="hidden">
+        <h2>Experiment Completed</h2>
+        <p>Thank you for your participation! Your results have been saved locally.</p>
+        <button id="download-btn">Download Results</button>
+    </div>
+
+    <script>
+        // Color definitions
+        const COLORS = [
+            {"name": "Red", "rgb": [255, 0, 0]},
+            {"name": "Green", "rgb": [0, 255, 0]},
+            {"name": "Blue", "rgb": [0, 0, 255]},
+            {"name": "Yellow", "rgb": [255, 255, 0]},
+            {"name": "Purple", "rgb": [121, 58, 144]},
+            {"name": "Brown", "rgb": [113, 69, 41]},
+            {"name": "Pink", "rgb": [225, 118, 178]},
+            {"name": "Orange", "rgb": [255, 128, 0]},
+            {"name": "Turquoise", "rgb": [63, 185, 177]},
+            {"name": "Beige", "rgb": [195, 168, 126]},
+            {"name": "White", "rgb": [255, 255, 255]},
+            {"name": "Black", "rgb": [0, 0, 0]},
+            {"name": "Gray", "rgb": [128, 128, 128]}
+        ];
+
+        // Convert RGB to hex
+        function rgbToHex(rgb) {
+            return "#" + ((1 << 24) + (rgb[0] << 16) + (rgb[1] << 8) + rgb[2]).toString(16).slice(1).toUpperCase();
+        }
+
+        // Add hex values to colors
+        COLORS.forEach(color => {
+            color.hex = rgbToHex(color.rgb);
+        });
+
+        // Create color grid
+        function createColorGrid() {
+            const colorGrid = document.getElementById('color-grid');
+            COLORS.forEach(color => {
+                const colorOption = document.createElement('div');
+                colorOption.className = 'color-option';
+                colorOption.title = color.name;
+                
+                const label = document.createElement('label');
+                
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.className = 'checkbox-input';
+                checkbox.dataset.color = color.name;
+                checkbox.addEventListener('change', handleColorSelection);
+                
+                const colorSwatch = document.createElement('div');
+                colorSwatch.className = 'color-swatch';
+                colorSwatch.style.backgroundColor = color.hex;
+                
+                label.appendChild(checkbox);
+                label.appendChild(colorSwatch);
+                colorOption.appendChild(label);
+                colorGrid.appendChild(colorOption);
+            });
+        }
+
+        // Load images on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            createColorGrid();
+            preloadImages();
+        });
+
+        // Experiment variables
+        let participantId = '';
+        let trials = [];
+        let currentTrialIndex = 0;
+        let totalTrials = 0;
+        let currentImageName = '';
+        let isPaused = false;
+        let canSelectColor = false;
+        let selectedColors = [];
+        let results = [];
+        let imageData = {}; // Store preloaded images
+
+        // DOM elements
+        const setupForm = document.getElementById('setup-form');
+        const experimentContainer = document.getElementById('experiment-container');
+        const fixation = document.getElementById('fixation');
+        const displayImage = document.getElementById('display-image');
+        const currentTrialSpan = document.getElementById('current-trial');
+        const totalTrialsSpan = document.getElementById('total-trials');
+        const pauseBtn = document.getElementById('pause-btn');
+        const continueBtn = document.getElementById('continue-btn');
+        const finishBtn = document.getElementById('finish-btn');
+        const completionMessage = document.getElementById('completion-message');
+        const nextBtn = document.getElementById('next-btn');
+        const downloadBtn = document.getElementById('download-btn');
+
+        // Setup event listeners
+        document.getElementById('start-btn').addEventListener('click', startExperiment);
+        pauseBtn.addEventListener('click', pauseExperiment);
+        continueBtn.addEventListener('click', continueExperiment);
+        finishBtn.addEventListener('click', finishExperiment);
+        nextBtn.addEventListener('click', handleNextTrial);
+        downloadBtn.addEventListener('click', downloadResults);
+
+        // Preload images
+        async function preloadImages() {
+            try {
+                const response = await fetch('images.json');
+                if (!response.ok) {
+                    throw new Error('Failed to load image data');
+                }
+                imageData = await response.json();
+                console.log('Images preloaded successfully');
+            } catch (error) {
+                console.error('Error preloading images:', error);
+                alert('Failed to load experiment images. Please refresh the page and try again.');
+            }
+        }
+
+        // Start experiment
+        function startExperiment() {
+            // Auto-generate participant ID with timestamp
+            const baseId = Date.now().toString();
+
+            // Read optional info
+            const age = document.getElementById('participant-age').value.trim() || "NA";
+            const gender = document.getElementById('participant-gender').value.trim() || "NA";
+            const language = document.getElementById('participant-language').value.trim().replace(/\s+/g, '-') || "NA";
+
+            // Final ID (e.g., 1684421321234_28_M_Spanish)
+            participantId = `${baseId}_${age}_${gender}_${language}`;
+
+            try {
+                // Use practice trials as-is
+                const practiceTrials = [...imageData.trial];
+
+                // 1. Sample 400 random train images
+                const shuffledTrain = [...imageData.train];
+                for (let i = shuffledTrain.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [shuffledTrain[i], shuffledTrain[j]] = [shuffledTrain[j], shuffledTrain[i]];
+                }
+                const sampledTrain = shuffledTrain.slice(0, 400);
+
+                // 2. Shuffle test and fun
+                const shuffledTest = [...imageData.test];
+                for (let i = shuffledTest.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [shuffledTest[i], shuffledTest[j]] = [shuffledTest[j], shuffledTest[i]];
+                }
+                const shuffledFun = [...imageData.fun];
+                for (let i = shuffledFun.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [shuffledFun[i], shuffledFun[j]] = [shuffledFun[j], shuffledFun[i]];
+                }
+
+                // 3. Combine and shuffle the full experiment block (excluding practice)
+                const experimentBlock = [...sampledTrain, ...shuffledTest, ...shuffledFun];
+                for (let i = experimentBlock.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [experimentBlock[i], experimentBlock[j]] = [experimentBlock[j], experimentBlock[i]];
+                }
+
+                // 4. Combine practice + experiment
+                trials = [...practiceTrials, ...experimentBlock];
+                totalTrials = trials.length;
+                currentTrialIndex = 0;
+
+                // Update UI
+                setupForm.classList.add('hidden');
+                experimentContainer.classList.remove('hidden');
+                pauseBtn.classList.remove('hidden');
+                totalTrialsSpan.textContent = totalTrials;
+                currentTrialSpan.textContent = '1';
+
+                // Start the first trial
+                runTrial();
+            } catch (error) {
+                console.error('Error setting up experiment:', error);
+                alert('Failed to start experiment. Please try again.');
+            }
+        }
+
+        async function createGrayImage(width, height) {
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+
+            ctx.fillStyle = 'rgb(128,128,128)'; // Mid-grey
+            ctx.fillRect(0, 0, width, height);
+
+            return canvas.toDataURL();
+        }
+
+        // Run a single trial
+        async function runTrial() {
+            if (currentTrialIndex >= totalTrials) {
+                completeExperiment();
+                return;
+            }
+            
+            // Show practice message for the first 5 trials
+            const practiceMessage = document.getElementById('practice-message');
+            if (currentTrialIndex < 5) {
+                practiceMessage.classList.remove('hidden');
+            } else {
+                practiceMessage.classList.add('hidden');
+            }
+
+            if (isPaused) {
+                return;
+            }
+
+            // Reset color selection state
+            canSelectColor = false;
+            resetColorSelection();
+
+            const currentTrial = trials[currentTrialIndex];
+
+            // Show fixation, hide image
+            displayImage.classList.add('hidden');
+            fixation.classList.remove('hidden');
+
+            // Wait for 500ms showing fixation
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            try {
+                // Store current trial info
+                currentImageName = currentTrial.name;
+                
+                // Hide fixation, show RGB image
+                fixation.classList.add('hidden');
+                displayImage.classList.remove('hidden');
+                displayImage.src = currentTrial.rgb;
+
+                // Show RGB image for 100ms
+                await new Promise(resolve => setTimeout(resolve, 100));
+
+                // Display binary image (gray mask)
+                const grayImageDataUrl = await createGrayImage(displayImage.width, displayImage.height);
+                displayImage.src = grayImageDataUrl;
+
+                // Now allow color selection
+                canSelectColor = true;
+            } catch (error) {
+                console.error('Error running trial:', error);
+                alert('Failed to run trial. Please try again.');
+            }
+        }
+
+        // Handle color selection
+        function handleColorSelection(event) {
+            if (isPaused || !canSelectColor) {
+                event.preventDefault();
+                return;
+            }
+
+            const checkbox = event.target;
+            const selectedColor = checkbox.dataset.color;
+
+            if (!selectedColor) {
+                return;
+            }
+
+            // Update selected colors array based on checkbox state
+            if (checkbox.checked) {
+                // Add color if not already selected
+                if (!selectedColors.includes(selectedColor)) {
+                    selectedColors.push(selectedColor);
+                }
+            } else {
+                // Remove color if unchecked
+                selectedColors = selectedColors.filter(color => color !== selectedColor);
+            }
+        }
+
+        // Handle next trial button click
+        async function handleNextTrial() {
+            if (!canSelectColor || isPaused) {
+                return;
+            }
+
+            try {
+                // Save results (skip first 5 practice trials)
+                if (currentTrialIndex >= 5) {
+                    const result = {
+                        participant_id: participantId,
+                        image_name: currentImageName,
+                        selected_colors: [...selectedColors],
+                        timestamp: new Date().toISOString()
+                    };
+                    results.push(result);
+                    uploadResultToGoogleForm(result);
+                }
+
+                // Prevent further color selection during transition
+                canSelectColor = false;
+
+                // Move to next trial
+                currentTrialIndex++;
+                currentTrialSpan.textContent = currentTrialIndex + 1;
+
+                // Clear the image to avoid showing previous binary mask during fixation
+                displayImage.src = '';
+
+                // Run next trial
+                runTrial();
+            } catch (error) {
+                console.error('Error handling next trial:', error);
+                alert('Failed to proceed to next trial. Please try again.');
+            }
+        }
+
+        // Reset color selection
+        function resetColorSelection() {
+            selectedColors = [];
+            document.querySelectorAll('.checkbox-input').forEach(checkbox => {
+                checkbox.checked = false;
+            });
+        }
+
+        // Pause experiment
+        function pauseExperiment() {
+            isPaused = true;
+            pauseBtn.classList.add('hidden');
+            continueBtn.classList.remove('hidden');
+            finishBtn.classList.remove('hidden');
+        }
+
+        // Continue experiment
+        function continueExperiment() {
+            isPaused = false;
+            pauseBtn.classList.remove('hidden');
+            continueBtn.classList.add('hidden');
+            finishBtn.classList.add('hidden');
+            runTrial();
+        }
+
+        // Finish experiment early
+        function finishExperiment() {
+            if (confirm('Are you sure you want to finish the experiment early?')) {
+                completeExperiment();
+            }
+        }
+
+        // Complete experiment
+        function completeExperiment() {
+            experimentContainer.classList.add('hidden');
+            completionMessage.classList.remove('hidden');
+        }
+
+        function uploadResultToGoogleForm(result) {
+            const formUrl = 'https://docs.google.com/forms/u/0/d/e/1FAIpQLSf9m4mXkDWxSNNWTcyC2O3SZxMAZihM0NYGZkKa7wHsQuZXTg/formResponse';
+
+            const formData = new FormData();
+            formData.append('entry.413854961', result.participant_id); // Replace with your actual field
+            formData.append('entry.853270788', result.image_name);
+            formData.append('entry.1046117494', result.selected_colors.join('|'));
+            formData.append('entry.1979874174', result.timestamp);
+
+            fetch(formUrl, {
+                method: 'POST',
+                mode: 'no-cors',  // Required to avoid CORS errors
+                body: formData
+            }).catch(err => {
+                console.error('Upload failed:', err);
+            });
+        }
+
+        // Download results as CSV
+        function downloadResults() {
+            if (results.length === 0) {
+                alert('No results to download.');
+                return;
+            }
+
+            // Create CSV content
+            let csvContent = "data:text/csv;charset=utf-8,";
+            csvContent += "participant_id,image_name,selected_colors,timestamp\n";
+            
+            results.forEach(result => {
+                csvContent += `${result.participant_id},${result.image_name},"${result.selected_colors.join('|')}",${result.timestamp}\n`;
+            });
+            
+            // Create download link
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `${participantId}_results.csv`);
+            document.body.appendChild(link);
+            
+            // Trigger download
+            link.click();
+            document.body.removeChild(link);
+        }
+    </script>
+</body>
+</html>

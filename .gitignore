@@ -177,4 +177,3 @@ cython_debug/
 results/
 
 .idea/
-static/
