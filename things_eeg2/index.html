@@ -294,6 +294,7 @@
         let isPaused = false;
         let canSelectColor = false;
         let selectedColors = [];
+        let displayedTime = 0;
         let results = [];
         let imageData = {}; // Store preloaded images
 
@@ -448,11 +449,14 @@
                 
                 // Hide fixation, show RGB image
                 fixation.classList.add('hidden');
+                const startShowTime = performance.now();
                 displayImage.classList.remove('hidden');
                 displayImage.src = currentTrial.rgb;
 
                 // Show RGB image for 100ms
                 await new Promise(resolve => setTimeout(resolve, 100));
+                const endShowTime = performance.now();
+                displayedTime = endShowTime - startShowTime;
 
                 // Display binary image (gray mask)
                 const grayImageDataUrl = await createGrayImage(displayImage.width, displayImage.height);
@@ -503,9 +507,10 @@
                 if (currentTrialIndex >= 5) {
                     const result = {
                         participant_id: participantId,
-                        image_name: currentImageName,
+                        image_name: currentImageName.split("/")[1],
+                        folder: currentImageName.split("/")[0],
                         selected_colors: [...selectedColors],
-                        timestamp: new Date().toISOString()
+                        displayed_time: displayedTime
                     };
                     results.push(result);
                     uploadResultToGoogleForm(result);
@@ -573,8 +578,9 @@
             const formData = new FormData();
             formData.append('entry.413854961', result.participant_id); // Replace with your actual field
             formData.append('entry.853270788', result.image_name);
+            formData.append('entry.687010064', result.folder);
             formData.append('entry.1046117494', result.selected_colors.join('|'));
-            formData.append('entry.1979874174', result.timestamp);
+            formData.append('entry.1979874174', result.displayed_time);
 
             fetch(formUrl, {
                 method: 'POST',
@@ -610,6 +616,25 @@
             // Trigger download
             link.click();
             document.body.removeChild(link);
+        }
+
+        function showImageForDuration(image, durationMs) {
+            return new Promise(resolve => {
+                const startTime = performance.now();
+                image.classList.remove('hidden');
+
+                function checkTime() {
+                    const elapsedTime = performance.now() - startTime;
+                    if (elapsedTime >= durationMs) {
+                        image.classList.add('hidden');
+                        resolve();
+                    } else {
+                        requestAnimationFrame(checkTime);
+                    }
+                }
+
+                requestAnimationFrame(checkTime);
+            });
         }
     </script>
 </body>

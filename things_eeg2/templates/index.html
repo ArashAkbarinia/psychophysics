@@ -245,6 +245,7 @@
         let isPaused = false;
         let canSelectColor = false;
         let selectedColors = [];
+        let displayedTime = 0;
 
         // DOM elements
         const setupForm = document.getElementById('setup-form');
@@ -382,11 +383,14 @@
 
                 // Hide fixation, show RGB image
                 fixation.classList.add('hidden');
+                const startShowTime = performance.now();
                 displayImage.classList.remove('hidden');
                 displayImage.src = `data:image/png;base64,${data.rgb_image}`;
 
                 // Show RGB image for 100ms
                 await new Promise(resolve => setTimeout(resolve, 100));
+                const endShowTime = performance.now();
+                displayedTime = endShowTime - startShowTime;
 
                 // Display binary image (gray mask)
                 displayImage.src = `data:image/png;base64,${data.binary_image}`;
