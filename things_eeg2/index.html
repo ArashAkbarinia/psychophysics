@@ -447,18 +447,28 @@
                 // Store current trial info
                 currentImageName = currentTrial.name;
                 
-                // Hide fixation, show RGB image
+                // Hide fixation
                 fixation.classList.add('hidden');
-                const startShowTime = performance.now();
-                displayImage.classList.remove('hidden');
-                displayImage.src = currentTrial.rgb;
 
-                // Show RGB image for 100ms
+                // Prepare to show RGB image
+                displayImage.classList.remove('hidden');
+
+                // Wait for the RGB image to load
+                await new Promise((resolve) => {
+                    displayImage.onload = resolve;
+                    displayImage.src = currentTrial.rgb;
+                });
+
+                // Now the image is fully loaded and ready
+                const startShowTime = performance.now();
+
+                // Show RGB image for exactly 100 ms
                 await new Promise(resolve => setTimeout(resolve, 100));
+
                 const endShowTime = performance.now();
                 displayedTime = endShowTime - startShowTime;
 
-                // Display binary image (gray mask)
+                // Now replace with gray mask
                 const grayImageDataUrl = await createGrayImage(displayImage.width, displayImage.height);
                 displayImage.src = grayImageDataUrl;
 
