@@ -1,10 +1,9 @@
-<!-- templates/index.html (UPDATED) -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Psychophysical Experiment</title>
+    <title>Colour Experiment</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -40,32 +39,28 @@
         }
         .color-grid {
             display: grid;
-            grid-template-columns: repeat(5, 1fr); /* Increased from 6 to 8 colors per row */
+            grid-template-columns: repeat(5, 1fr);
             justify-content: center;
             max-width: 400px;
             margin: 20px auto;
-            gap: 5px; /* Reduced gap from 10px to 5px */
+            gap: 5px;
         }
         #experiment-container {
             text-align: center;
         }
         #image-display {
-            width: 600px; /* 500px + 20px padding */
-            height: 600px; /* 500px + 20px padding */
+            width: 600px;
+            height: 600px;
             display: flex;
             align-items: center;
             justify-content: center;
             position: relative;
             margin: 0 auto 20px;
-            /* border: 3px solid #333; */ /* Added border around the image display */
-            /* padding: 10px; */
-            /* box-shadow: 0 0 10px rgba(0,0,0,0.2); */
-            /* box-sizing: content-box; */ /* Ensure padding doesn't affect dimensions */
         }
         #image-display img {
-            width: 5500px;
+            width: 550px;
             height: 550px;
-            object-fit: contain; /* Ensures the image maintains aspect ratio if needed */
+            object-fit: contain;
         }
         #fixation {
             position: absolute;
@@ -104,7 +99,7 @@
             background-color: #0b7dda;
         }
         .checkbox-input {
-            margin-right: 5px; /* Added spacing between checkbox and color swatch */
+            margin-right: 5px;
             width: 16px;
             height: 16px;
         }
@@ -125,27 +120,74 @@
         #instructions p {
             line-height: 1.5;
         }
+        #download-btn {
+            background-color: #FF9800;
+            margin-top: 20px;
+        }
+        #download-btn:hover {
+            background-color: #F57C00;
+        }
+        .instructions-layout {
+            display: flex;
+            gap: 20px;
+            align-items: flex-start;
+            flex-wrap: wrap;
+        }
+        .instructions-text {
+            flex: 1 1 300px;
+        }
+        .instructions-image {
+            flex: 1 1 250px;
+        }
+        .instructions-image img {
+            width: 80%;
+            height: auto;
+            border: 1px solid #ccc;
+        }
     </style>
 </head>
 <body>
     <h1 align="center">Colour Experiment</h1>
 
     <div id="setup-form">
-        <!-- New instructions section -->
         <div id="instructions">
             <h2>Instructions</h2>
-            <p>You will see an image like the one below and must select all the colours you perceive in it. For example, you might choose green, beige, yellow, and brown.</p>
-            <p>In the actual experiment, each image will be shown very briefly (100 ms), so you may notice fewer colours—select all the ones you do see, whether it's one or several.</p>
-            <p>The first five trials are for practice. The full experiment takes about 15 minutes.</p>
-            <img src="/static/ex.png" alt="Example experimental image">
+            <div class="instructions-layout">
+                <div class="instructions-text">
+                    <p>1. You will see a series of images briefly displayed.</p>
+                    <p>2. Each image will be shown for only 100ms.</p>
+                    <p>3. After each image, select all colors you saw in the scene.</p>
+                    <p>4. Click 'Next Trial' to proceed to the next image.</p>
+                    <p>5. The experiment begins with 5 practice trials.</p>
+                    <p>6. Your task is to identify all colors present in each image.</p>
+                </div>
+                <div class="instructions-image">
+                    <img src="static/ex.png" alt="Experiment Screenshot">
+                </div>
+            </div>
         </div>
 
-        <h2>Participant Information</h2>
-        <p>Please enter your participant ID and click "Start Experiment" to begin.</p>
+        <h2>Participant Info</h2>
+        <p>Please fill in the following optional details.</p>
+
         <div>
-            <label for="participant-id">Participant ID:</label>
-            <input type="text" id="participant-id" required>
+            <label for="participant-age">Age (optional):</label>
+            <input type="text" id="participant-age" pattern="[0-9]*">
         </div>
+        <div>
+            <label for="participant-gender">Gender (optional):</label>
+            <select id="participant-gender">
+                <option value="">–</option>
+                <option value="M">M</option>
+                <option value="F">F</option>
+                <option value="D">D</option>
+            </select>
+        </div>
+        <div>
+            <label for="participant-language">Mother Tongue (optional):</label>
+            <input type="text" id="participant-language">
+        </div>
+
         <button id="start-btn">Start Experiment</button>
     </div>
 
@@ -200,7 +242,6 @@
         let currentTrialIndex = 0;
         let totalTrials = 0;
         let currentImageName = '';
-        let currentSegmentationLabel = null;
         let isPaused = false;
         let canSelectColor = false;
         let selectedColors = [];
@@ -233,12 +274,16 @@
 
         // Start experiment
         async function startExperiment() {
-            participantId = document.getElementById('participant-id').value.trim();
+            // Auto-generate participant ID with timestamp
+            const baseId = Date.now().toString();
 
-            if (!participantId) {
-                alert('Please enter a participant ID');
-                return;
-            }
+            // Read optional info
+            const age = document.getElementById('participant-age').value.trim() || "NA";
+            const gender = document.getElementById('participant-gender').value.trim() || "NA";
+            const language = document.getElementById('participant-language').value.trim().replace(/\s+/g, '-') || "NA";
+
+            // Final ID (e.g., 1684421321234_28_M_Spanish)
+            participantId = `${baseId}_${age}_${gender}_${language}`;
 
             try {
                 const response = await fetch('/setup', {
@@ -343,7 +388,7 @@
                 // Show RGB image for 100ms
                 await new Promise(resolve => setTimeout(resolve, 100));
 
-                // Display binary image
+                // Display binary image (gray mask)
                 displayImage.src = `data:image/png;base64,${data.binary_image}`;
 
                 // Now allow color selection
@@ -387,12 +432,8 @@
                 return;
             }
 
-<!--            if (selectedColors.length === 0) {-->
-<!--                alert('Please select at least one color before proceeding.');-->
-<!--                return;-->
-<!--            }-->
-
             try {
+                // Save results (skip first 5 practice trials)
                 if (currentTrialIndex >= 5) {
                     const response = await fetch('/save_result', {
                         method: 'POST',
