@@ -259,19 +259,19 @@
                 const colorOption = document.createElement('div');
                 colorOption.className = 'color-option';
                 colorOption.title = color.name;
-                
+
                 const label = document.createElement('label');
-                
+
                 const checkbox = document.createElement('input');
                 checkbox.type = 'checkbox';
                 checkbox.className = 'checkbox-input';
                 checkbox.dataset.color = color.name;
                 checkbox.addEventListener('change', handleColorSelection);
-                
+
                 const colorSwatch = document.createElement('div');
                 colorSwatch.className = 'color-swatch';
                 colorSwatch.style.backgroundColor = color.hex;
-                
+
                 label.appendChild(checkbox);
                 label.appendChild(colorSwatch);
                 colorOption.appendChild(label);
@@ -280,9 +280,12 @@
         }
 
         // Load images on page load
-        document.addEventListener('DOMContentLoaded', () => {
-            createColorGrid();
-            preloadImages();
+        document.addEventListener('DOMContentLoaded', async () => {
+            await Promise.all([
+                createColorGrid(),
+                preloadImages(),
+                loadResponseCounts()
+            ]);
         });
 
         // Experiment variables
@@ -297,6 +300,7 @@
         let displayedTime = 0;
         let results = [];
         let imageData = {}; // Store preloaded images
+        let responseCounts = {};  // image_name count for train images
 
         // DOM elements
         const setupForm = document.getElementById('setup-form');
@@ -335,6 +339,22 @@
             }
         }
 
+        async function loadResponseCounts() {
+            try {
+                const response = await fetch('static/response_count.csv');
+                const text = await response.text();
+                const lines = text.trim().split('\n');
+
+                for (let i = 1; i < lines.length; i++) {  // skip header
+                    const [imageName, countStr] = lines[i].split(',');
+                    responseCounts[imageName.trim()] = parseInt(countStr.trim(), 10);
+                }
+                console.log('Response counts loaded:', responseCounts);
+            } catch (error) {
+                console.error('Failed to load response counts:', error);
+            }
+        }
+
         // Start experiment
         function startExperiment() {
             // Auto-generate participant ID with timestamp
@@ -352,13 +372,22 @@
                 // Use practice trials as-is
                 const practiceTrials = [...imageData.trial];
 
-                // 1. Sample 400 random train images
-                const shuffledTrain = [...imageData.train];
-                for (let i = shuffledTrain.length - 1; i > 0; i--) {
-                    const j = Math.floor(Math.random() * (i + 1));
-                    [shuffledTrain[i], shuffledTrain[j]] = [shuffledTrain[j], shuffledTrain[i]];
-                }
-                const sampledTrain = shuffledTrain.slice(0, 400);
+                // 1. Sample 200 train images with weighted random sampling
+                const trainImages = [...imageData.train];
+
+                // Create weights based on responseCounts
+                const weights = trainImages.map(img => {
+                    const imgName = img.name.split("/").pop(); // get the image filename
+                    const count = responseCounts[imgName] || 0; // default 0 if missing
+                    return 1 / (1 + count);
+                });
+
+                // Normalize weights
+                const totalWeight = weights.reduce((a, b) => a + b, 0);
+                const probabilities = weights.map(w => w / totalWeight);
+
+                // Sample 200 images with probabilities
+                const sampledTrain = weightedRandomSample(trainImages, probabilities, 200);
 
                 // 2. Shuffle test and fun
                 const shuffledTest = [...imageData.test];
@@ -417,7 +446,7 @@
                 completeExperiment();
                 return;
             }
-            
+
             // Show practice message for the first 5 trials
             const practiceMessage = document.getElementById('practice-message');
             if (currentTrialIndex < 5) {
@@ -446,7 +475,7 @@
             try {
                 // Store current trial info
                 currentImageName = currentTrial.name;
-                
+
                 // Hide fixation
                 fixation.classList.add('hidden');
 
@@ -611,18 +640,18 @@
             // Create CSV content
             let csvContent = "data:text/csv;charset=utf-8,";
             csvContent += "participant_id,image_name,selected_colors,timestamp\n";
-            
+
             results.forEach(result => {
                 csvContent += `${result.participant_id},${result.image_name},"${result.selected_colors.join('|')}",${result.timestamp}\n`;
             });
-            
+
             // Create download link
             const encodedUri = encodeURI(csvContent);
             const link = document.createElement("a");
             link.setAttribute("href", encodedUri);
             link.setAttribute("download", `${participantId}_results.csv`);
             document.body.appendChild(link);
-            
+
             // Trigger download
             link.click();
             document.body.removeChild(link);
@@ -645,6 +674,24 @@
 
                 requestAnimationFrame(checkTime);
             });
+        }
+
+        function weightedRandomSample(items, probabilities, sampleSize) {
+            const sampled = [];
+            const cumulative = [];
+
+            probabilities.reduce((acc, p, i) => {
+                cumulative[i] = acc + p;
+                return cumulative[i];
+            }, 0);
+
+            for (let n = 0; n < sampleSize; n++) {
+                const rand = Math.random();
+                const idx = cumulative.findIndex(c => c >= rand);
+                sampled.push(items[idx]);
+            }
+
+            return sampled;
         }
     </script>
 </body>
