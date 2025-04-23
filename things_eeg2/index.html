@@ -146,11 +146,11 @@
     </style>
 </head>
 <body>
-    <h1 align="center">Colour Experiment</h1>
+    <h2 id="experiment-title" align="center">Colour Experiment</h2>
 
     <div id="setup-form">
         <div id="instructions">
-            <h2>Instructions</h2>
+            <h3>Instructions</h3>
             <div class="instructions-layout">
                 <div class="instructions-text">
                     <p>1. You will see a series of images briefly displayed.</p>
@@ -166,15 +166,15 @@
             </div>
         </div>
 
-        <h2>Participant Info</h2>
-        <p>Please fill in the following optional details.</p>
+        <h3>Participant Info</h3>
+        <p>Please fill in the following details.</p>
 
         <div>
-            <label for="participant-age">Age (optional):</label>
+            <label for="participant-age">Age:</label>
             <input type="text" id="participant-age" pattern="[0-9]*">
         </div>
         <div>
-            <label for="participant-gender">Gender (optional):</label>
+            <label for="participant-gender">Gender:</label>
             <select id="participant-gender">
                 <option value="">–</option>
                 <option value="M">M</option>
@@ -183,7 +183,7 @@
             </select>
         </div>
         <div>
-            <label for="participant-language">Mother Tongue (optional):</label>
+            <label for="participant-language">Mother Tongue:</label>
             <input type="text" id="participant-language">
         </div>
 
@@ -219,7 +219,7 @@
     </div>
 
     <div id="completion-message" class="hidden">
-        <h2>Experiment Completed</h2>
+        <h3>Experiment Completed</h3>
         <p>Thank you for your participation! Your results have been saved locally.</p>
         <button id="download-btn">Download Results</button>
     </div>
@@ -355,10 +355,23 @@
             }
         }
 
+        function getURLParameters() {
+            const params = new URLSearchParams(window.location.search);
+            const prolificId = params.get('PROLIFIC_PID');
+            const studyId = params.get('STUDY_ID');
+            const sessionId = params.get('SESSION_ID');
+
+            if (prolificId && studyId && sessionId) {
+                return `${prolificId}_${studyId}_${sessionId}`;
+            }
+            return null;
+        }
+
+
         // Start experiment
         function startExperiment() {
             // Auto-generate participant ID with timestamp
-            const baseId = Date.now().toString();
+            let baseId = getURLParameters() || Date.now().toString();
 
             // Read optional info
             const age = document.getElementById('participant-age').value.trim() || "NA";
@@ -415,6 +428,7 @@
 
                 // Update UI
                 setupForm.classList.add('hidden');
+                document.getElementById('experiment-title').classList.add('hidden');
                 experimentContainer.classList.remove('hidden');
                 pauseBtn.classList.remove('hidden');
                 totalTrialsSpan.textContent = totalTrials;
