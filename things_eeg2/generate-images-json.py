@@ -13,6 +13,7 @@ def generate_images_json(base_folder='static/uploads'):
       - test/
       - train/
       - fun/
+      - catch/
     
     Images should be in pairs, with filenames that match except for a prefix:
     - image1.jpg (RGB image)
@@ -24,7 +25,7 @@ def generate_images_json(base_folder='static/uploads'):
         return False
     
     # Define the categories to scan
-    categories = ['trial', 'test', 'train', 'fun']
+    categories = ['trial', 'test', 'train', 'fun', 'catch']
     result = {}
     
     # Process each category
@@ -46,8 +47,6 @@ def generate_images_json(base_folder='static/uploads'):
         # Process the RGB images and find their corresponding masks
         category_data = []
         for img_ind, rgb_file in enumerate(sorted(rgb_files)):
-            if img_ind == 5:
-                break
             # Get the image filename without extension
             base_name = os.path.basename(rgb_file)
             name_without_ext = os.path.splitext(base_name)[0]

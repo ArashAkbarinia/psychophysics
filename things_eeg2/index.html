@@ -86,6 +86,11 @@
         button:hover {
             background-color: #45a049;
         }
+        button:disabled {
+            background-color: #cccccc;
+            color: #666666;
+            cursor: not-allowed;
+        }
         .instruction {
             font-weight: bold;
             margin-bottom: 10px;
@@ -118,13 +123,6 @@
         }
         #instructions p {
             line-height: 1.5;
-        }
-        #download-btn {
-            background-color: #FF9800;
-            margin-top: 20px;
-        }
-        #download-btn:hover {
-            background-color: #F57C00;
         }
         .instructions-layout {
             display: flex;
@@ -220,8 +218,7 @@
 
     <div id="completion-message" class="hidden">
         <h3>Experiment Completed</h3>
-        <p>Thank you for your participation! Your results have been saved locally.</p>
-        <button id="download-btn">Download Results</button>
+        <p>Thank you for your participation! Your results have been saved.</p>
     </div>
 
     <script>
@@ -301,6 +298,7 @@
         let results = [];
         let imageData = {}; // Store preloaded images
         let responseCounts = {};  // image_name count for train images
+        let isProlificParticipant = false; // Track if participant is from Prolific
 
         // DOM elements
         const setupForm = document.getElementById('setup-form');
@@ -314,7 +312,6 @@
         const finishBtn = document.getElementById('finish-btn');
         const completionMessage = document.getElementById('completion-message');
         const nextBtn = document.getElementById('next-btn');
-        const downloadBtn = document.getElementById('download-btn');
 
         // Setup event listeners
         document.getElementById('start-btn').addEventListener('click', startExperiment);
@@ -322,7 +319,6 @@
         continueBtn.addEventListener('click', continueExperiment);
         finishBtn.addEventListener('click', finishExperiment);
         nextBtn.addEventListener('click', handleNextTrial);
-        downloadBtn.addEventListener('click', downloadResults);
 
         // Preload images
         async function preloadImages() {
@@ -355,23 +351,14 @@
             }
         }
 
-        function getURLParameters() {
-            const params = new URLSearchParams(window.location.search);
-            const prolificId = params.get('PROLIFIC_PID');
-            const studyId = params.get('STUDY_ID');
-            const sessionId = params.get('SESSION_ID');
-
-            if (prolificId && studyId && sessionId) {
-                return `${prolificId}_${studyId}_${sessionId}`;
-            }
-            return null;
-        }
-
-
         // Start experiment
         function startExperiment() {
-            // Auto-generate participant ID with timestamp
-            let baseId = getURLParameters() || Date.now().toString();
+            const urlParams = new URLSearchParams(window.location.search);
+            const hasProlificId = urlParams.has('PROLIFIC_PID');
+            isProlificParticipant = hasProlificId; // Set the global flag
+
+            // Auto-generate participant ID with timestamp if no PROLIFIC_PID
+            let baseId = hasProlificId ? urlParams.get('PROLIFIC_PID') : Date.now().toString();
 
             // Read optional info
             const age = document.getElementById('participant-age').value.trim() || "NA";
@@ -380,49 +367,75 @@
 
             // Final ID (e.g., 1684421321234_28_M_Spanish)
             participantId = `${baseId}_${age}_${gender}_${language}`;
+            console.log("Participant ID", participantId);
+
+            const num_train_samples = hasProlificId ? 350 : 200
+            const num_test_samples = hasProlificId ? 50 : 200
 
             try {
                 // Use practice trials as-is
                 const practiceTrials = [...imageData.trial];
 
-                // 1. Sample 200 train images with weighted random sampling
+                // 1. Sample train images with weighted random sampling
                 const trainImages = [...imageData.train];
+                let sampledTrain;
 
-                // Create weights based on responseCounts
-                const weights = trainImages.map(img => {
-                    const imgName = img.name.split("/").pop(); // get the image filename
-                    const count = responseCounts[imgName] || 0; // default 0 if missing
-                    return 1 / (1 + count);
-                });
+                if (hasProlificId) {
+                    // For Prolific participants - use uniform distribution
+                    console.log("Using uniform distribution for Prolific participant");
 
-                // Normalize weights
-                const totalWeight = weights.reduce((a, b) => a + b, 0);
-                const probabilities = weights.map(w => w / totalWeight);
+                    // Shuffle array for random selection
+                    sampledTrain = shuffleArray([...trainImages]).slice(0, num_train_samples);
+                } else {
+                    // For non-Prolific participants - use weighted sampling
+                    console.log("Using weighted distribution for non-Prolific participant");
 
-                // Sample 200 images with probabilities
-                const sampledTrain = weightedRandomSample(trainImages, probabilities, 200);
+                    // Create weights based on responseCounts
+                    const weights = trainImages.map(img => {
+                        const imgName = img.name.split("/").pop(); // get the image filename
+                        const count = responseCounts[imgName] || 0; // default 0 if missing
+                        return 1 / (1 + count);
+                    });
+
+                    // Normalize weights
+                    const totalWeight = weights.reduce((a, b) => a + b, 0);
+                    const probabilities = weights.map(w => w / totalWeight);
+
+                    // Sample images with probabilities
+                    sampledTrain = weightedRandomSample(trainImages, probabilities, num_train_samples);
+                }
 
                 // 2. Shuffle test and fun
-                const shuffledTest = [...imageData.test];
-                for (let i = shuffledTest.length - 1; i > 0; i--) {
-                    const j = Math.floor(Math.random() * (i + 1));
-                    [shuffledTest[i], shuffledTest[j]] = [shuffledTest[j], shuffledTest[i]];
-                }
-                const shuffledFun = [...imageData.fun];
-                for (let i = shuffledFun.length - 1; i > 0; i--) {
-                    const j = Math.floor(Math.random() * (i + 1));
-                    [shuffledFun[i], shuffledFun[j]] = [shuffledFun[j], shuffledFun[i]];
-                }
+                const shuffledTest = shuffleArray([...imageData.test]).slice(0, num_test_samples);
+                const shuffledFun = shuffleArray([...imageData.fun]);
 
                 // 3. Combine and shuffle the full experiment block (excluding practice)
-                const experimentBlock = [...sampledTrain, ...shuffledTest, ...shuffledFun];
-                for (let i = experimentBlock.length - 1; i > 0; i--) {
-                    const j = Math.floor(Math.random() * (i + 1));
-                    [experimentBlock[i], experimentBlock[j]] = [experimentBlock[j], experimentBlock[i]];
+                const experimentBlock = shuffleArray([...sampledTrain, ...shuffledTest, ...shuffledFun]);
+
+                // 4. Insert catch trials every 20 trials
+                const catchTrials = [...imageData.catch];
+
+                // If we don't have enough catch trials, cycle through them
+                const finalExperimentBlock = [];
+
+                // Calculate how many catch trials we need (one every 20 trials)
+                const totalNeeded = Math.floor(experimentBlock.length / 20);
+
+                for (let i = 0; i < experimentBlock.length; i++) {
+                    finalExperimentBlock.push(experimentBlock[i]);
+
+                    // Insert a catch trial after every 20 regular trials
+                    if ((i + 1) % 20 === 0 && i < experimentBlock.length - 1) {
+                        // Get catch trial index - cycle through them if needed
+                        const catchIndex = Math.floor(i / 20) % catchTrials.length;
+                        // Mark this as a catch trial
+                        const catchTrial = {...catchTrials[catchIndex], isCatchTrial: true};
+                        finalExperimentBlock.push(catchTrial);
+                    }
                 }
 
-                // 4. Combine practice + experiment
-                trials = [...practiceTrials, ...experimentBlock];
+                // 5. Combine practice + experiment with catch trials
+                trials = [...practiceTrials, ...finalExperimentBlock];
                 totalTrials = trials.length;
                 currentTrialIndex = 0;
 
@@ -430,7 +443,15 @@
                 setupForm.classList.add('hidden');
                 document.getElementById('experiment-title').classList.add('hidden');
                 experimentContainer.classList.remove('hidden');
-                pauseBtn.classList.remove('hidden');
+
+                // Show pause button only for non-Prolific participants
+                if (!isProlificParticipant) {
+                    pauseBtn.classList.remove('hidden');
+                } else {
+                    pauseBtn.classList.add('hidden');
+                    pauseBtn.disabled = true; // Also disable it to be safe
+                }
+
                 totalTrialsSpan.textContent = totalTrials;
                 currentTrialSpan.textContent = '1';
 
@@ -440,6 +461,15 @@
                 console.error('Error setting up experiment:', error);
                 alert('Failed to start experiment. Please try again.');
             }
+        }
+
+        // Shuffle array in place using Fisher-Yates algorithm
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
         }
 
         async function createGrayImage(width, height) {
@@ -597,6 +627,11 @@
 
         // Pause experiment
         function pauseExperiment() {
+            // Don't allow Prolific participants to pause
+            if (isProlificParticipant) {
+                return;
+            }
+
             isPaused = true;
             pauseBtn.classList.add('hidden');
             continueBtn.classList.remove('hidden');
@@ -606,7 +641,12 @@
         // Continue experiment
         function continueExperiment() {
             isPaused = false;
-            pauseBtn.classList.remove('hidden');
+
+            // Only show pause button for non-Prolific participants
+            if (!isProlificParticipant) {
+                pauseBtn.classList.remove('hidden');
+            }
+
             continueBtn.classList.add('hidden');
             finishBtn.classList.add('hidden');
             runTrial();
@@ -642,33 +682,6 @@
             }).catch(err => {
                 console.error('Upload failed:', err);
             });
-        }
-
-        // Download results as CSV
-        function downloadResults() {
-            if (results.length === 0) {
-                alert('No results to download.');
-                return;
-            }
-
-            // Create CSV content
-            let csvContent = "data:text/csv;charset=utf-8,";
-            csvContent += "participant_id,image_name,selected_colors,timestamp\n";
-
-            results.forEach(result => {
-                csvContent += `${result.participant_id},${result.image_name},"${result.selected_colors.join('|')}",${result.timestamp}\n`;
-            });
-
-            // Create download link
-            const encodedUri = encodeURI(csvContent);
-            const link = document.createElement("a");
-            link.setAttribute("href", encodedUri);
-            link.setAttribute("download", `${participantId}_results.csv`);
-            document.body.appendChild(link);
-
-            // Trigger download
-            link.click();
-            document.body.removeChild(link);
         }
 
         function showImageForDuration(image, durationMs) {
