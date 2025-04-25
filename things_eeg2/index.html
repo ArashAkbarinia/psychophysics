@@ -686,6 +686,13 @@
         function completeExperiment() {
             experimentContainer.classList.add('hidden');
             completionMessage.classList.remove('hidden');
+
+            // Redirect Prolific users after a short delay
+            if (isProlificParticipant) {
+                setTimeout(() => {
+                    window.location.href = 'https://app.prolific.com/submissions/complete?cc=COBSD4MH';
+                }, 2000); // 2-second delay so the thank-you message is briefly shown
+            }
         }
 
         function uploadResultToGoogleForm(result) {
