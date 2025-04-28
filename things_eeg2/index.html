@@ -179,8 +179,7 @@
                     <p>3. After each image, select all colors you saw in the scene.</p>
                     <p>4. You have 5 seconds to respond to each image.</p>
                     <p>5. Click 'Next Trial' to proceed to the next image.</p>
-                    <p>6. The experiment begins with 5 practice trials.</p>
-                    <p>7. If you missed an image, do not select any colours.</p>
+                    <p>6. If you missed an image, do not select any colours.</p>
                 </div>
                 <div class="instructions-image">
                     <img src="static/ex.png" alt="Experiment Screenshot">
@@ -246,6 +245,13 @@
     <div id="completion-message" class="hidden">
         <h3>Experiment Completed</h3>
         <p>Thank you for your participation! Your results have been saved.</p>
+    </div>
+
+    <div id="screening-failed-message" class="hidden" class="error-message">
+        <h3>Incompatible device</h3>
+        <p>We're sorry, but your equipment does not appear to be suitable for this fast-paced experiment.</p>
+        <p>Please return your submission.</p>
+        <p>Thank you for your interest in participating.</p>
     </div>
 
     <script>
@@ -330,6 +336,7 @@
         let isProlificParticipant = false; // Track if participant is from Prolific
         let responseTimer = null; // For 5-second response timer
         let timerBarAnimation = null; // For timer bar animation
+        let screeningFailures = 0; // For screening 
 
         // DOM elements
         const setupForm = document.getElementById('setup-form');
@@ -408,13 +415,19 @@
                 num_train_samples = 5;
                 num_test_samples = 5;
             } else {
-                num_train_samples = hasProlificId ? 350 : 200; // Assuming hasProlificId is defined elsewhere
-                num_test_samples = hasProlificId ? 50 : 200;  // Assuming hasProlificId is defined elsewhere
+                num_train_samples = hasProlificId ? 350 : 200;
+                num_test_samples = hasProlificId ? 50 : 200;
             }
 
             try {
                 // Use practice trials as-is
-                const practiceTrials = [...imageData.trial];
+                const practiceTrials = [...imageData.trial].slice(0, 2);;
+
+                // Screening trials - use first 5 catch trials
+                const screeningTrials = [...imageData.catch].slice(0, 5).map(trial => ({
+                    ...trial,
+                    isScreeningTrial: true
+                }));
 
                 // 1. Sample train images with weighted random sampling
                 const trainImages = [...imageData.train];
@@ -474,10 +487,11 @@
                     }
                 }
 
-                // 5. Combine practice + experiment with catch trials
-                trials = [...practiceTrials, ...finalExperimentBlock];
+                // 5. Combine practice + screening + experiment with catch trials
+                trials = [...practiceTrials, ...screeningTrials, ...finalExperimentBlock];
                 totalTrials = trials.length;
                 currentTrialIndex = 0;
+                screeningFailures = 0; // Initialise screening failures counter
 
                 // Update UI
                 setupForm.classList.add('hidden');
@@ -609,9 +623,9 @@
                 return;
             }
 
-            // Show practice message for the first 5 trials
+            // Show practice message for the first 2 trials
             const practiceMessage = document.getElementById('practice-message');
-            if (currentTrialIndex < 5) {
+            if (currentTrialIndex < 2) {
                 practiceMessage.classList.remove('hidden');
             } else {
                 practiceMessage.classList.add('hidden');
@@ -695,9 +709,27 @@
             clearResponseTimer();
 
             try {
+                const currentTrial = trials[currentTrialIndex];
                 const noResponse = selectedColors.length === 0;
 
-                if (currentTrialIndex >= 5 && !noResponse) {
+                // Handle screening trials (after practice)
+                if (currentTrial.isScreeningTrial) {
+                    const isCorrect = validateCatchTrialResponse(currentTrial, selectedColors);
+
+                    if (!isCorrect || noResponse) {
+                        screeningFailures++;
+                        console.log(`Screening failure ${screeningFailures}/5`);
+                    }
+
+                    if (screeningFailures > 1) {
+                        // Failed screening - more than 1 error
+                        failScreening();
+                        return;
+                    }
+                }
+
+                // Save results for real trials
+                if (currentTrialIndex >= 7 && !noResponse) {
                     const result = {
                         participant_id: participantId,
                         image_name: currentImageName.split("/")[1],
@@ -710,7 +742,7 @@
                 }
 
                 // If no response, add current trial at the end
-                if (currentTrialIndex >= 5 && noResponse) {
+                if (currentTrialIndex >= 7 && noResponse) {
                     console.log("No response, adding trial to end:", currentImageName);
                     // Push the current trial to the end
                     trials.push(trials[currentTrialIndex]);
@@ -727,6 +759,44 @@
             } catch (error) {
                 console.error('Error handling next trial:', error);
                 alert('Failed to proceed to next trial. Please try again.');
+            }
+        }
+
+        // Function to validate catch trial responses
+        function validateCatchTrialResponse(trial, selectedColors) {
+            // Extract the color name from the filename
+            const imageName = trial.name.split("/").pop(); // e.g. "Red.png"
+            const expectedColor = imageName.split(".")[0]; // e.g. "Red"
+
+            // Check if the expected color is in the selected colors
+            const hasExpectedColor = selectedColors.includes(expectedColor);
+
+            // If they selected the right color plus potentially Black, it's fine
+            // If they selected other colors, it's incorrect
+            if (hasExpectedColor) {
+                if (selectedColors.length === 1) {
+                    return true; // Only selected the expected color
+                } else if (selectedColors.length === 2 && selectedColors.includes("Black")) {
+                    return true; // Selected expected color + Black
+                } else {
+                    return false; // Selected expected color + other colors
+                }
+            } else {
+                return false; // Didn't select the expected color
+            }
+        }
+
+        // Function to handle screening failure
+        function failScreening() {
+            experimentContainer.classList.add('hidden');
+            document.getElementById('screening-failed-message').classList.remove('hidden');
+            console.log(`Screening failed: ${screeningFailures} errors out of 5 trials`);
+
+            // Redirect Prolific users after a short delay
+            if (isProlificParticipant) {
+                setTimeout(() => {
+                    window.location.href = 'https://app.prolific.com/submissions/complete?cc=CIFCGT5C';
+                }, 2000); // 2-second delay so the thank-you message is briefly shown
             }
         }
 

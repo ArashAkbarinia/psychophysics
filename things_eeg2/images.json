@@ -66957,8 +66957,8 @@
       "rgb": "https://jlubox.uni-giessen.de/dl/fiFjYPteTSK1VrnL5RLTrCA6/things_eeg2/static/uploads/catch/Blue.png"
     },
     {
-      "name": "catch/Brown.png",
-      "rgb": "https://jlubox.uni-giessen.de/dl/fiFjYPteTSK1VrnL5RLTrCA6/things_eeg2/static/uploads/catch/Brown.png"
+      "name": "catch/Red.png",
+      "rgb": "https://jlubox.uni-giessen.de/dl/fiFjYPteTSK1VrnL5RLTrCA6/things_eeg2/static/uploads/catch/Red.png"
     },
     {
       "name": "catch/Gray.png",
@@ -66969,16 +66969,16 @@
       "rgb": "https://jlubox.uni-giessen.de/dl/fiFjYPteTSK1VrnL5RLTrCA6/things_eeg2/static/uploads/catch/Green.png"
     },
     {
-      "name": "catch/Orange.png",
-      "rgb": "https://jlubox.uni-giessen.de/dl/fiFjYPteTSK1VrnL5RLTrCA6/things_eeg2/static/uploads/catch/Orange.png"
-    },
-    {
       "name": "catch/Purple.png",
       "rgb": "https://jlubox.uni-giessen.de/dl/fiFjYPteTSK1VrnL5RLTrCA6/things_eeg2/static/uploads/catch/Purple.png"
     },
     {
-      "name": "catch/Red.png",
-      "rgb": "https://jlubox.uni-giessen.de/dl/fiFjYPteTSK1VrnL5RLTrCA6/things_eeg2/static/uploads/catch/Red.png"
+      "name": "catch/Orange.png",
+      "rgb": "https://jlubox.uni-giessen.de/dl/fiFjYPteTSK1VrnL5RLTrCA6/things_eeg2/static/uploads/catch/Orange.png"
+    },
+    {
+      "name": "catch/Brown.png",
+      "rgb": "https://jlubox.uni-giessen.de/dl/fiFjYPteTSK1VrnL5RLTrCA6/things_eeg2/static/uploads/catch/Brown.png"
     },
     {
       "name": "catch/Turquoise.png",
