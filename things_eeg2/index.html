@@ -694,8 +694,9 @@
             clearResponseTimer();
 
             try {
-                // Save results (skip first 5 practice trials)
-                if (currentTrialIndex >= 5) {
+                const noResponse = selectedColors.length === 0;
+
+                if (currentTrialIndex >= 5 && !noResponse) {
                     const result = {
                         participant_id: participantId,
                         image_name: currentImageName.split("/")[1],
@@ -707,17 +708,20 @@
                     if (!isDebugMode) uploadResultToGoogleForm(result);
                 }
 
-                // Prevent further color selection during transition
+                // If no response, add current trial at the end
+                if (currentTrialIndex >= 5 && noResponse) {
+                    console.log("No response, adding trial to end:", currentImageName);
+                    // Push the current trial to the end
+                    trials.push(trials[currentTrialIndex]);
+                    // Remove the current trial from current position
+                    trials.splice(currentTrialIndex, 1);
+                } else {
+                    currentTrialIndex++;
+                    currentTrialSpan.textContent = currentTrialIndex + 1;
+                }
+
                 canSelectColor = false;
-
-                // Move to next trial
-                currentTrialIndex++;
-                currentTrialSpan.textContent = currentTrialIndex + 1;
-
-                // Clear the image to avoid showing previous binary mask during fixation
-                displayImage.src = '';
-
-                // Run next trial
+                displayImage.src = ''; // Clear image
                 runTrial();
             } catch (error) {
                 console.error('Error handling next trial:', error);
