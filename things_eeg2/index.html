@@ -314,6 +314,7 @@
 
         // Experiment variables
         let isDebugMode = false;
+        let trainUniformDist = false;
         let participantId = '';
         let trials = [];
         let currentTrialIndex = 0;
@@ -419,7 +420,7 @@
                 const trainImages = [...imageData.train];
                 let sampledTrain;
 
-                if (hasProlificId) {
+                if (trainUniformDist) {
                     // For Prolific participants - use uniform distribution
                     console.log("Using uniform distribution for Prolific participant");
 
