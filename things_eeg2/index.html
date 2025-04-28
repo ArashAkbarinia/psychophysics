@@ -141,6 +141,29 @@
             height: auto;
             border: 1px solid #ccc;
         }
+        #timer-bar-container {
+            width: 100%;
+            height: 10px;
+            background-color: #eee;
+            border-radius: 5px;
+            margin: 10px 0;
+            overflow: hidden;
+        }
+        #timer-bar {
+            height: 100%;
+            width: 100%;
+            background-color: #4CAF50;
+            transition: width linear;
+        }
+        .error-message {
+            color: #d32f2f;
+            font-weight: bold;
+            padding: 20px;
+            margin: 20px 0;
+            border: 2px solid #d32f2f;
+            border-radius: 5px;
+            background-color: #ffebee;
+        }
     </style>
 </head>
 <body>
@@ -154,9 +177,10 @@
                     <p>1. You will see a series of images briefly displayed.</p>
                     <p>2. Each image will be shown for only 100ms.</p>
                     <p>3. After each image, select all colors you saw in the scene.</p>
-                    <p>4. Click 'Next Trial' to proceed to the next image.</p>
-                    <p>5. The experiment begins with 5 practice trials.</p>
-                    <p>6. If you missed an image, do not select any colours.</p>
+                    <p>4. You have 5 seconds to respond to each image.</p>
+                    <p>5. Click 'Next Trial' to proceed to the next image.</p>
+                    <p>6. The experiment begins with 5 practice trials.</p>
+                    <p>7. If you missed an image, do not select any colours.</p>
                 </div>
                 <div class="instructions-image">
                     <img src="static/ex.png" alt="Experiment Screenshot">
@@ -196,6 +220,9 @@
 
         <div id="color-selection">
             <p class="instruction">Select colour(s) of the scene:</p>
+            <div id="timer-bar-container">
+                <div id="timer-bar"></div>
+            </div>
             <div class="color-grid" id="color-grid">
                 <!-- Color options will be inserted here by JavaScript -->
             </div>
@@ -286,6 +313,7 @@
         });
 
         // Experiment variables
+        let isDebugMode = false;
         let participantId = '';
         let trials = [];
         let currentTrialIndex = 0;
@@ -299,6 +327,8 @@
         let imageData = {}; // Store preloaded images
         let responseCounts = {};  // image_name count for train images
         let isProlificParticipant = false; // Track if participant is from Prolific
+        let responseTimer = null; // For 5-second response timer
+        let timerBarAnimation = null; // For timer bar animation
 
         // DOM elements
         const setupForm = document.getElementById('setup-form');
@@ -312,6 +342,7 @@
         const finishBtn = document.getElementById('finish-btn');
         const completionMessage = document.getElementById('completion-message');
         const nextBtn = document.getElementById('next-btn');
+        const timerBar = document.getElementById('timer-bar');
 
         // Setup event listeners
         document.getElementById('start-btn').addEventListener('click', startExperiment);
@@ -369,8 +400,16 @@
             participantId = `${baseId}_${age}_${gender}_${language}`;
             console.log("Participant ID", participantId);
 
-            const num_train_samples = hasProlificId ? 350 : 200
-            const num_test_samples = hasProlificId ? 50 : 200
+            let num_train_samples;
+            let num_test_samples;
+
+            if (isDebugMode) {
+                num_train_samples = 5;
+                num_test_samples = 5;
+            } else {
+                num_train_samples = hasProlificId ? 350 : 200; // Assuming hasProlificId is defined elsewhere
+                num_test_samples = hasProlificId ? 50 : 200;  // Assuming hasProlificId is defined elsewhere
+            }
 
             try {
                 // Use practice trials as-is
@@ -520,6 +559,48 @@
             });
         }
 
+        // Start 5 second response timer with animation
+        function startResponseTimer() {
+            // Clear any existing timer
+            clearResponseTimer();
+            
+            // Set up timer bar animation
+            timerBar.style.width = '100%';
+            timerBar.style.transition = 'width 5s linear';
+            
+            // Trigger reflow to ensure the animation starts correctly
+            timerBar.getBoundingClientRect();
+            
+            // Start animation
+            timerBar.style.width = '0%';
+            
+            // Set 5 second timer for auto-next
+            responseTimer = setTimeout(() => {
+                handleTimeExpired();
+            }, 5000);
+        }
+
+        // Clear response timer
+        function clearResponseTimer() {
+            clearTimeout(responseTimer);
+            timerBar.style.transition = 'none';
+            timerBar.style.width = '100%';
+        }
+
+        // Handle timer expiration - no selection made
+        function handleTimeExpired() {
+            if (canSelectColor) {
+                console.log("Time expired for trial:", currentTrialIndex);
+                
+                // Add current trial to the pending retrials list
+                const currentTrial = trials[currentTrialIndex];
+                // pendingRetrials.push(currentTrial);
+                
+                // Move to next trial automatically
+                handleNextTrial(true);
+            }
+        }
+
         // Run a single trial
         async function runTrial() {
             if (currentTrialIndex >= totalTrials) {
@@ -568,8 +649,9 @@
                 const grayImageDataUrl = await createGrayImage(displayImage.width, displayImage.height);
                 displayImage.src = grayImageDataUrl;
 
-                // Now allow color selection
+                // Now allow color selection and start response timer
                 canSelectColor = true;
+                startResponseTimer();
             } catch (error) {
                 console.error('Error running trial:', error);
                 alert('Failed to run trial. Please try again.');
@@ -603,10 +685,13 @@
         }
 
         // Handle next trial button click
-        async function handleNextTrial() {
-            if (!canSelectColor || isPaused) {
+        async function handleNextTrial(isAutomatic = false) {
+            if ((!canSelectColor && !isAutomatic) || isPaused) {
                 return;
             }
+
+            // Clear response timer
+            clearResponseTimer();
 
             try {
                 // Save results (skip first 5 practice trials)
@@ -619,7 +704,7 @@
                         displayed_time: displayedTime
                     };
                     results.push(result);
-                    uploadResultToGoogleForm(result);
+                    if (!isDebugMode) uploadResultToGoogleForm(result);
                 }
 
                 // Prevent further color selection during transition
