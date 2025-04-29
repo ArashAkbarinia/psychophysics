@@ -718,11 +718,10 @@
 
                     if (!isCorrect || noResponse) {
                         screeningFailures++;
-                        console.log(`Screening failure ${screeningFailures}/5`);
                     }
 
-                    if (screeningFailures > 1) {
-                        // Failed screening - more than 1 error
+                    if (screeningFailures > 2) {
+                        // Failed screening - more than 2 errors
                         failScreening();
                         return;
                     }
