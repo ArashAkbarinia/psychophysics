@@ -42,7 +42,7 @@ def generate_images_json(base_folder='static/uploads'):
             image_files.extend(glob(os.path.join(category_path, f"*{ext}")))
         
         # Filter out mask files (assuming they start with "mask")
-        rgb_files = [f for f in image_files if not os.path.basename(f).lower().startswith('mask')]
+        rgb_files = [f for f in image_files]
         
         # Process the RGB images and find their corresponding masks
         category_data = []
