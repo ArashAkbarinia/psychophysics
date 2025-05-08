@@ -35545,6 +35545,46 @@
       "rgb": "https://jlubox.uni-giessen.de/dl/fiFjYPteTSK1VrnL5RLTrCA6/things_eeg2/static/uploads/train/mashed_potato_10s.png"
     },
     {
+      "name": "train/mask_01b.png",
+      "rgb": "https://jlubox.uni-giessen.de/dl/fiFjYPteTSK1VrnL5RLTrCA6/things_eeg2/static/uploads/train/mask_01b.png"
+    },
+    {
+      "name": "train/mask_02s.png",
+      "rgb": "https://jlubox.uni-giessen.de/dl/fiFjYPteTSK1VrnL5RLTrCA6/things_eeg2/static/uploads/train/mask_02s.png"
+    },
+    {
+      "name": "train/mask_03s.png",
+      "rgb": "https://jlubox.uni-giessen.de/dl/fiFjYPteTSK1VrnL5RLTrCA6/things_eeg2/static/uploads/train/mask_03s.png"
+    },
+    {
+      "name": "train/mask_04s.png",
+      "rgb": "https://jlubox.uni-giessen.de/dl/fiFjYPteTSK1VrnL5RLTrCA6/things_eeg2/static/uploads/train/mask_04s.png"
+    },
+    {
+      "name": "train/mask_05s.png",
+      "rgb": "https://jlubox.uni-giessen.de/dl/fiFjYPteTSK1VrnL5RLTrCA6/things_eeg2/static/uploads/train/mask_05s.png"
+    },
+    {
+      "name": "train/mask_06s.png",
+      "rgb": "https://jlubox.uni-giessen.de/dl/fiFjYPteTSK1VrnL5RLTrCA6/things_eeg2/static/uploads/train/mask_06s.png"
+    },
+    {
+      "name": "train/mask_07s.png",
+      "rgb": "https://jlubox.uni-giessen.de/dl/fiFjYPteTSK1VrnL5RLTrCA6/things_eeg2/static/uploads/train/mask_07s.png"
+    },
+    {
+      "name": "train/mask_08s.png",
+      "rgb": "https://jlubox.uni-giessen.de/dl/fiFjYPteTSK1VrnL5RLTrCA6/things_eeg2/static/uploads/train/mask_08s.png"
+    },
+    {
+      "name": "train/mask_09s.png",
+      "rgb": "https://jlubox.uni-giessen.de/dl/fiFjYPteTSK1VrnL5RLTrCA6/things_eeg2/static/uploads/train/mask_09s.png"
+    },
+    {
+      "name": "train/mask_10s.png",
+      "rgb": "https://jlubox.uni-giessen.de/dl/fiFjYPteTSK1VrnL5RLTrCA6/things_eeg2/static/uploads/train/mask_10s.png"
+    },
+    {
       "name": "train/mast_01b.png",
       "rgb": "https://jlubox.uni-giessen.de/dl/fiFjYPteTSK1VrnL5RLTrCA6/things_eeg2/static/uploads/train/mast_01b.png"
     },
