@@ -57,13 +57,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     await Promise.all([
         createColorGrid(),
         preloadImages(),
-        loadResponseCounts()
+        loadResponseCounts(),
+        loadManualImageList() // New function to load manual image list
     ]);
 });
 
 // Experiment variables
 let isDebugMode = false;
 let trainUniformDist = false;
+let manualImages = true; // Added flag for manual images mode
 let participantId = '';
 let trials = [];
 let currentTrialIndex = 0;
@@ -76,6 +78,7 @@ let displayedTime = 0;
 let results = [];
 let imageData = {}; // Store preloaded images
 let responseCounts = {};  // image_name count for train images
+let manualImageList = []; // New variable to store manual image list
 let isProlificParticipant = false; // Track if participant is from Prolific
 let responseTimer = null; // For 5-second response timer
 let timerBarAnimation = null; // For timer bar animation
@@ -114,6 +117,22 @@ async function preloadImages() {
     } catch (error) {
         console.error('Error preloading images:', error);
         alert('Failed to load experiment images. Please refresh the page and try again.');
+    }
+}
+
+// Load manual image list
+async function loadManualImageList() {
+    try {
+        const response = await fetch('static/manual_imgs.txt');
+        if (!response.ok) {
+            console.warn('Failed to load manual image list - file might not exist');
+            return;
+        }
+        const text = await response.text();
+        manualImageList = text.trim().split('\n').map(line => line.trim()).filter(line => line.length > 0);
+        console.log(`Loaded ${manualImageList.length} manual images`);
+    } catch (error) {
+        console.error('Error loading manual image list:', error);
     }
 }
 
@@ -164,7 +183,7 @@ function startExperiment() {
 
     try {
         // Use practice trials as-is
-        const practiceTrials = [...imageData.trial].slice(0, 2);;
+        const practiceTrials = [...imageData.trial].slice(0, 2);
 
         // Screening trials - use first 5 catch trials
         const screeningTrials = [...imageData.catch].slice(0, 5).map(trial => ({
@@ -172,98 +191,137 @@ function startExperiment() {
             isScreeningTrial: true
         }));
 
-        // 1. Sample train images
-        const trainImages = [...imageData.train];
-        let sampledTrain = [];
-        
-        if (trainUniformDist) {
-            // For Prolific participants - use uniform distribution
-            console.log("Using uniform distribution for Prolific participant");
-            sampledTrain = shuffleArray([...trainImages]).slice(0, num_train_samples);
+        if (manualImages && manualImageList.length > 0) {
+            // Manual images mode - use only the images from manual_imgs.txt
+            console.log("Using manual image list for experiment");
+
+            // Find the corresponding image objects from imageData based on filenames
+            const manualTrials = [];
+
+            // Process each manual image filename
+            for (const filename of manualImageList) {
+                // Search in all categories (train, test, fun)
+                const categories = ['train', 'test', 'fun'];
+                let found = false;
+
+                for (const category of categories) {
+                    const matchingImage = imageData[category].find(img => {
+                        // Get filename from path
+                        const imgFilename = img.name.split('/').pop();
+                        return imgFilename === filename;
+                    });
+
+                    if (matchingImage) {
+                        manualTrials.push(matchingImage);
+                        found = true;
+                        break;
+                    }
+                }
+
+                if (!found) {
+                    console.warn(`Image ${filename} from manual list not found in image data`);
+                }
+            }
+
+            // Combine practice + screening + manual trials
+            trials = [...practiceTrials, ...screeningTrials, ...manualTrials];
         } else {
-            // For non-Prolific participants - use our custom selection strategy
-            console.log("Using priority-based selection strategy");
+            // Normal experiment flow - use trained sampler
             
-            // Select images with priority to those with no responses or < 3 responses
-            let remainingToSelect = num_train_samples;
-            
-            // First, identify eligible images (no responses or < 3)
-            const eligibleImages = trainImages.filter(img => {
-                const imgName = img.name.split("/").pop(); // get the image filename
-                return !(imgName in responseCounts) || responseCounts[imgName] < 3;
-            });
-            
-            console.log(`Found ${eligibleImages.length} eligible images with < 3 responses`);
-            
-            // Take as many eligible images as needed or available
-            if (eligibleImages.length > 0) {
-                // Shuffle eligible images for random selection
-                const shuffledEligible = shuffleArray([...eligibleImages]);
-                const numToTake = Math.min(remainingToSelect, shuffledEligible.length);
-                sampledTrain = shuffledEligible.slice(0, numToTake);
-                remainingToSelect -= numToTake;
-            }
-            
-            // If we still need more, use weighted random sampling for the rest
-            if (remainingToSelect > 0) {
-                console.log(`Need ${remainingToSelect} more images, using weighted sampling`);
-                
-                // Remove already selected images from the pool
-                const remainingImages = trainImages.filter(img => 
-                    !sampledTrain.some(selected => selected.name === img.name)
-                );
-                
-                // Create weights based on responseCounts
-                const weights = remainingImages.map(img => {
-                    const imgName = img.name.split("/").pop();
-                    const count = responseCounts[imgName] || 0;
-                    return 1 / (1 + count);
+            // 1. Sample train images
+            const trainImages = [...imageData.train];
+            let sampledTrain = [];
+
+            if (trainUniformDist) {
+                // For Prolific participants - use uniform distribution
+                console.log("Using uniform distribution for Prolific participant");
+                sampledTrain = shuffleArray([...trainImages]).slice(0, num_train_samples);
+            } else {
+                // For non-Prolific participants - use our custom selection strategy
+                console.log("Using priority-based selection strategy");
+
+                // Select images with priority to those with no responses or < 3 responses
+                let remainingToSelect = num_train_samples;
+
+                // First, identify eligible images (no responses or < 3)
+                const eligibleImages = trainImages.filter(img => {
+                    const imgName = img.name.split("/").pop(); // get the image filename
+                    return !(imgName in responseCounts) || responseCounts[imgName] < 3;
                 });
-                
-                // Normalize weights
-                const totalWeight = weights.reduce((a, b) => a + b, 0);
-                const probabilities = weights.map(w => w / totalWeight);
-                
-                // Sample the remaining needed images
-                const additionalImages = weightedRandomSample(remainingImages, probabilities, remainingToSelect);
 
-                
-                // Add them to our sample
-                sampledTrain = [...sampledTrain, ...additionalImages];
+                console.log(`Found ${eligibleImages.length} eligible images with < 3 responses`);
+
+                // Take as many eligible images as needed or available
+                if (eligibleImages.length > 0) {
+                    // Shuffle eligible images for random selection
+                    const shuffledEligible = shuffleArray([...eligibleImages]);
+                    const numToTake = Math.min(remainingToSelect, shuffledEligible.length);
+                    sampledTrain = shuffledEligible.slice(0, numToTake);
+                    remainingToSelect -= numToTake;
+                }
+
+                // If we still need more, use weighted random sampling for the rest
+                if (remainingToSelect > 0) {
+                    console.log(`Need ${remainingToSelect} more images, using weighted sampling`);
+
+                    // Remove already selected images from the pool
+                    const remainingImages = trainImages.filter(img =>
+                        !sampledTrain.some(selected => selected.name === img.name)
+                    );
+
+                    // Create weights based on responseCounts
+                    const weights = remainingImages.map(img => {
+                        const imgName = img.name.split("/").pop();
+                        const count = responseCounts[imgName] || 0;
+                        return 1 / (1 + count);
+                    });
+
+                    // Normalize weights
+                    const totalWeight = weights.reduce((a, b) => a + b, 0);
+                    const probabilities = weights.map(w => w / totalWeight);
+
+                    // Sample the remaining needed images
+                    const additionalImages = weightedRandomSample(remainingImages, probabilities, remainingToSelect);
+
+
+                    // Add them to our sample
+                    sampledTrain = [...sampledTrain, ...additionalImages];
+                }
             }
+
+            // 2. Shuffle test and fun
+            const shuffledTest = shuffleArray([...imageData.test]).slice(0, num_test_samples);
+            const shuffledFun = shuffleArray([...imageData.fun]);
+
+            // 3. Combine and shuffle the full experiment block (excluding practice)
+            const experimentBlock = shuffleArray([...sampledTrain, ...shuffledTest, ...shuffledFun]);
+
+            // 4. Insert catch trials every 20 trials
+            const catchTrials = [...imageData.catch];
+
+            // If we don't have enough catch trials, cycle through them
+            const finalExperimentBlock = [];
+
+            // Calculate how many catch trials we need (one every 20 trials)
+            const totalNeeded = Math.floor(experimentBlock.length / 20);
+
+            for (let i = 0; i < experimentBlock.length; i++) {
+                finalExperimentBlock.push(experimentBlock[i]);
+
+                // Insert a catch trial after every 20 regular trials
+                if ((i + 1) % 20 === 0 && i < experimentBlock.length - 1) {
+                    // Get catch trial index - cycle through them if needed
+                    const catchIndex = Math.floor(i / 20) % catchTrials.length;
+                    // Mark this as a catch trial
+                    const catchTrial = {...catchTrials[catchIndex], isCatchTrial: true};
+                    finalExperimentBlock.push(catchTrial);
+                }
+            }
+
+            // 5. Combine practice + screening + experiment with catch trials
+            trials = [...practiceTrials, ...screeningTrials, ...finalExperimentBlock];
         }
 
-        // 2. Shuffle test and fun
-        const shuffledTest = shuffleArray([...imageData.test]).slice(0, num_test_samples);
-        const shuffledFun = shuffleArray([...imageData.fun]);
-
-        // 3. Combine and shuffle the full experiment block (excluding practice)
-        const experimentBlock = shuffleArray([...sampledTrain, ...shuffledTest, ...shuffledFun]);
-
-        // 4. Insert catch trials every 20 trials
-        const catchTrials = [...imageData.catch];
-
-        // If we don't have enough catch trials, cycle through them
-        const finalExperimentBlock = [];
-
-        // Calculate how many catch trials we need (one every 20 trials)
-        const totalNeeded = Math.floor(experimentBlock.length / 20);
-
-        for (let i = 0; i < experimentBlock.length; i++) {
-            finalExperimentBlock.push(experimentBlock[i]);
-
-            // Insert a catch trial after every 20 regular trials
-            if ((i + 1) % 20 === 0 && i < experimentBlock.length - 1) {
-                // Get catch trial index - cycle through them if needed
-                const catchIndex = Math.floor(i / 20) % catchTrials.length;
-                // Mark this as a catch trial
-                const catchTrial = {...catchTrials[catchIndex], isCatchTrial: true};
-                finalExperimentBlock.push(catchTrial);
-            }
-        }
-
-        // 5. Combine practice + screening + experiment with catch trials
-        trials = [...practiceTrials, ...screeningTrials, ...finalExperimentBlock];
         totalTrials = trials.length;
         currentTrialIndex = 0;
         screeningFailures = 0; // Initialise screening failures counter
